@@ -17,7 +17,7 @@ Documentation & FAQ of IndexedDB databases enumeration function.
 - [Spec changes](#spec-changes)
 - [Future features](#future-features)
 
-<!-- END doctoc generated TOC please keep comment here to allow auto update →
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
 # What?
 IndexedDB’ transaction.commit() functionality will provide an explicit API for requesting that an IndexedDB transaction be committed. 
 

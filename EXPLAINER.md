@@ -46,7 +46,7 @@ IndexedDB’s transaction.commit() will allow developers the flexibility to anno
 
 The primary benefit of this change is increasing the throughput of writing data to disk. The throughput increase is evident in comparing Figure 2 to Figure 1. In Figure 2 one sees that time required by the round trip of the response of the final request and the commit signal it ultimately returns upon completion of its callback is saved by the explicit commit().
 
-This is particularly useful for the case of loading a database, when large amounts of data are being written to disk via many transactions with no intention of making any follow up queries on that data, and the case of writing data to disk under some time constraint. The latter situation is encountered, for example, when the browser informs a tab that is about to be killed (because it has been inactive for a period of time and will thus be killed to ease memory usage) and so the tab must save its state to disk as fast as possible so that it can be reloaded again in the event that a user navigates back to it.
+This is particularly useful for the case of loading a database, when large amounts of data are being written to disk via many transactions with no intention of making any follow up queries on that data, and the case of writing data to disk under some time constraint. The latter situation is encountered, for example, when the browser informs a tab that is about to be killed (because it has been inactive for a period of time and will thus be killed to ease memory usage) and so the tab must save its state to disk as fast as possible so that it can be reloaded again in the event that a user navigates back to it. This case is explained in greater detail in the section [Page Lifcycle](#page-lifecycle) below.
 
 A secondary benefit exists that is less concrete but nevertheless still important. By allowing developers to explicitly call commit() on transactions, the IndexedDB API begins to adopt the feel of a more conventional database API.
 
@@ -65,7 +65,7 @@ There have been questions regarding whether or not some procedure for resurfacin
 
 # Use Cases and Example Code
 
-## Writeonly mode: Loading a lot of data into an indexedDB database
+## Writeonly mode
 When a user initially creates an indexedDB database, they may desire to load a large amount of data into the database without any intention of making any secondary requests beyond this large ‘put’ operation. In this event, to ensure loading occurs as fast as possible, the developer can call commit() after issuing all their ‘puts’.
 
 ```javascript
@@ -74,7 +74,7 @@ database_info_enumeration.forEach(function(info) {
   indexedDB.deleteDatabase(info.name);
 });
 ```
-## Page Lifecycle: Writing the state of a page to IndexedDB as fast as possible
+## Page Lifecycle
 The Page Lifecycle API is an API heavily involved in alleviating power and memory tolls on users running many web applications at once. Central to this task is efficiently tracking and managing pages as they transition in and out of active and inactive states.
 
 The process of ‘freezing’ a tab involves recognizing when a tab has been inactive for a long period of time, marking it for ‘freezing’ (letting it know that the browser is getting ready to kill its process to save on memory), and then subsequently killing it. When the tab is informed that it is going to be killed, it has a limited window of time to save its state to disk so that in the event that a user renavigates to that tab, it can be allocated a new process that can be loaded back into the state that the previous process was in when it was killed.
@@ -105,7 +105,7 @@ database_info_enumeration.forEach(function(info) {
 });
 ```
 
-## Best Practice: It’s just a good idea
+## Best Practice
 When a developer knows that they have made the last request on an open transaction, calling commit() is strictly beneficial to them. Their data will be written to disk faster and they will still receive responses from the final requests they have made against the transaction and so can still perform operations in script in reaction to the final requests being processed. Therefore whenever a developer is certain that a request is the final one they will make against a transaction, best practice will likely become that they call commit explicitly on the transaction.
 
 # Transaction commit() consistency and guarantees
@@ -121,5 +121,5 @@ Transaction commit()
 See [https://github.com/w3c/IndexedDB/pull/240/files#diff-ec9cfa5f3f35ec1f84feb2e59686c34dR2369](#https://github.com/w3c/IndexedDB/pull/240/files#diff-ec9cfa5f3f35ec1f84feb2e59686c34dR2369)
 
 # Future Features
-
+resurfacing commit() errors
 commit() 2

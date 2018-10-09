@@ -25,7 +25,6 @@ At present an IndexedDB transaction is auto-committed when it is determined by s
 
 Once all callbacks owned by a transaction’s requests resolve such that no new requests have been made on the transaction, then the transaction has arrived in a state whereby it is impossible for it to reattain ‘active’ status, and so the transaction transitions into the ‘commiting’ state and a signal is sent denoting that it is time to flush the results of the transaction to disk.
 
-![](pics/idb_autocommit_curr.png)
 <p align="center">
 <img src="https://github.com/andreas-butler/idb-transaction-commit/blob/master/pics/idb_autocommit_curr.png?raw=true" alt="hi" />
 <br/>
@@ -35,6 +34,11 @@ Figure 1: An example control flow illustrating the transaction autocommit functi
 Under the new architecture, the explicit commit() call is added to the transaction API. When this call is invoked on an active transaction, then the transaction will be forced into the ‘committing’ state, and thus no new requests will be permitted to be made on it (even in any callbacks belonging to previous requests). Attempts at making new requests on the transaction after commit() is called will throw a DOMException. 
 
 ![](pics/idb_commit_new.png)
+<p align="center">
+<img src="https://github.com/andreas-butler/idb-transaction-commit/blob/master/pics/idb_commit_new.png?raw=true" alt="hi" />
+<br/>
+Figure 2: How the previous control flow differs in the case of explicit commit().
+</p>
 
 # Why?
 Under the previous architecture, before a transaction could be fully committed and data flushed to disk, it was necessary for script to verify that no request callbacks themselves made new requests on the transaction. This meant that flushing data to disk required waiting for all pending callbacks to resolve completely. 
@@ -77,6 +81,17 @@ The process of ‘freezing’ a tab involves recognizing when a tab has been ina
 Currently ‘freezing’ and other such functionalities under the umbrella of the ‘lifecycle’ API cannot reliably use indexedDB to save state because there is a risk that the transaction responsible for saving state to disk will not commit before the page is killed. This unreliability arises because the page must be alive after the ‘put’ requests return to the front end in order to issue the commit signal after all callbacks have resolved. Instead there is a pattern of developers saving state to localStorage.
 
 ![](pics/idb_autocommit_save_state.png)
+<p align="center">
+<img src="https://github.com/andreas-butler/idb-transaction-commit/blob/master/pics/idb_autocommit_save_state.png?raw=true" alt="hi" />
+<br/>
+Figure 3: An example of the unreliability of using the current autocommitting implementation of indexedDB for saving page state during the freezing process.
+</p>
+
+<p align="center">
+<img src="https://github.com/andreas-butler/idb-transaction-commit/blob/master/pics/idb_commit_state_Save.png?raw=true" alt="hi" />
+<br/>
+Figure 4: An example of how the above situation is made more reliable with the addition of the explicit commit() API call.
+</p>
 
 ![](pics/idb_commit_state_Save.png)
 

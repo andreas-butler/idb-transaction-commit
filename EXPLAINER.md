@@ -51,6 +51,7 @@ This is particularly useful for the case of loading a database, when large amoun
 A secondary benefit exists that is less concrete but nevertheless still important. By allowing developers to explicitly call commit() on transactions, the IndexedDB API begins to adopt the feel of a more conventional database API.
 
 # How?
+The explicit commit() API call may only be requested against a transaction so long as that transaction is active (ie: when it is first created and within the scope of any callbacks belonging to any previous requests made on the transaction). When the call is made, the transaction's state will be set to 'committing' to prevent any future requests from being made against it. Following this, control will wait until every request against the transaction has completed, after which an attempt will be made to actually flush the changes made to the database by the transaction to disk. In the event of an error, the transaction will be aborted and an Exception will be raised. After this, the transaction will be switched to the 'finished' state and an event named 'complete' will be fired at??? the transaction (Additionally at this time any necessary nulling of pointers will be done for the case of the transaction being an upgrade transaction).
 
 # Potential Issues
 IndexedDB initially shipped solely with an autocommit functionality. Developers did not have the control to declare themselves finished with a transaction that the new explicit commit() API call affords them. It is thus reasonable to ask why the initial ship of indexedDB did not include an explicit commit() call and whether adding one could cause potential issues. The short answer to the first question is ‘simplicity’ and the short answer to the second question is ‘not really’.
@@ -118,7 +119,7 @@ Transaction commit()
 // talk about what happens in the event of a writing error (cache full) and how abort will be called?
 
 # Spec changes
-See [https://github.com/w3c/IndexedDB/pull/240/files#diff-ec9cfa5f3f35ec1f84feb2e59686c34dR2369](#https://github.com/w3c/IndexedDB/pull/240/files#diff-ec9cfa5f3f35ec1f84feb2e59686c34dR2369)
+See [https://github.com/w3c/IndexedDB/pull/242](#https://github.com/w3c/IndexedDB/pull/242)
 
 # Future Features
 resurfacing commit() errors

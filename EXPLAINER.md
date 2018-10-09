@@ -25,7 +25,8 @@ At present an IndexedDB transaction is auto-committed when it is determined by s
 
 Once all callbacks owned by a transaction’s requests resolve such that no new requests have been made on the transaction, then the transaction has arrived in a state whereby it is impossible for it to reattain ‘active’ status, and so the transaction transitions into the ‘commiting’ state and a signal is sent denoting that it is time to flush the results of the transaction to disk.
 
-![aaaaaaaaaaaaaaaaaaa](pics/idb_autocommit_curr.png)
+![](pics/idb_autocommit_curr.png)
+<img align="center" source="pics/idb_autocommit_curr.png">
 
 Under the new architecture, the explicit commit() call is added to the transaction API. When this call is invoked on an active transaction, then the transaction will be forced into the ‘committing’ state, and thus no new requests will be permitted to be made on it (even in any callbacks belonging to previous requests). Attempts at making new requests on the transaction after commit() is called will throw a DOMException. 
 

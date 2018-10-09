@@ -71,7 +71,7 @@ The process of ‘freezing’ a tab involves recognizing when a tab has been ina
 
 Currently ‘freezing’ and other such functionalities under the umbrella of the ‘lifecycle’ API cannot reliably use indexedDB to save state because there is a risk that the transaction responsible for saving state to disk will not commit before the page is killed. This unreliability arises because the page must be alive after the ‘put’ requests return to the front end in order to issue the commit signal after all callbacks have resolved. Instead there is a pattern of developers saving state to localStorage.
 
-![](pics/idb_autocommit_state_save.png)
+![](pics/idb_autocommit_save_state.png)
 
 ![](pics/idb_commit_state_Save.png)
 

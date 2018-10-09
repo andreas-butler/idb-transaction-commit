@@ -28,6 +28,7 @@ Once all callbacks owned by a transaction’s requests resolve such that no new 
 ![](pics/idb_autocommit_curr.png)
 <p align="center">
 <img src="https://github.com/andreas-butler/idb-transaction-commit/blob/master/pics/idb_autocommit_curr.png?raw=true" alt="hi" />
+  
   Figure 1: An example control flow illustrating the transaction autocommit functionality.
 </p>
 

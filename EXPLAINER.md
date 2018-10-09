@@ -91,7 +91,7 @@ Figure 3: An example of the unreliability of using the current autocommitting im
 With the addition of commit() there is no longer a need for the page to still be alive after the ‘put’ requests are issued when saving state because, assuming commit() was appropriately called, the resolution of callbacks no longer mediates the flushing of data to disk, and instead it may be safely assumed that data can be saved with no performance implications. This fact is illustrated below in Figure 4.
 
 <p align="center">
-<img src="https://github.com/andreas-butler/idb-transaction-commit/blob/master/pics/idb_commit_state_Save.png?raw=true" alt="hi" />
+<img src="https://github.com/andreas-butler/idb-transaction-commit/blob/master/pics/idb_commit_save_state.png?raw=true" alt="hi" />
 <br/>
 Figure 4: An example of how the above situation is made more reliable with the addition of the explicit commit() API call.
 </p>

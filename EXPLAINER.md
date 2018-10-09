@@ -27,7 +27,7 @@ Once all callbacks owned by a transaction’s requests resolve such that no new 
 
 ![](pics/idb_autocommit_curr.png)
 <p align="center">
-<img source="https://github.com/andreas-butler/idb-transaction-commit/blob/master/pics/idb_autocommit_curr.png"/>
+<img source="https://github.com/andreas-butler/idb-transaction-commit/blob/master/pics/idb_autocommit_curr.png" />
   </p>
 
 Under the new architecture, the explicit commit() call is added to the transaction API. When this call is invoked on an active transaction, then the transaction will be forced into the ‘committing’ state, and thus no new requests will be permitted to be made on it (even in any callbacks belonging to previous requests). Attempts at making new requests on the transaction after commit() is called will throw a DOMException. 

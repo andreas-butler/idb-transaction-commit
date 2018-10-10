@@ -1,5 +1,5 @@
 # Explainer
-Documentation & FAQ of IndexedDB databases enumeration function. 
+Documentation & FAQ of the IndexedDB transaction explicit commit() API. 
 **Please file an issue @ [https://github.com/w3c/IndexedDB/issues](#https://github.com/w3c/IndexedDB/issues) if you have any feedback :)**
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
@@ -23,7 +23,7 @@ IndexedDB’ transaction.commit() functionality will provide an explicit API for
 
 At present an IndexedDB transaction is auto-committed when it is determined by script that it is no longer possible to kick the transaction from an inactive state to an active one. A transaction may transition from inactive to active only within the scope of any callbacks belonging to any requests made on the transaction, which is the same scope in which new requests may be made on the transaction. Thus, as long as callbacks from previous transaction requests themselves make new requests (for example, in the event that the results of a previous query are used to construct a secondary query), the lifetime of the transaction will be extended and the transaction will not be committed. 
 
-Once all callbacks owned by a transaction’s requests resolve such that no new requests have been made on the transaction, then the transaction has arrived in a state whereby it is impossible for it to reattain ‘active’ status, and so the transaction transitions into the ‘commiting’ state and a signal is sent denoting that it is time to flush the results of the transaction to disk. This flow is illustrated below in Figure 1.
+Once all callbacks owned by a transaction’s requests resolve such that no new requests have been made on the transaction, then the transaction has arrived in a state whereby it is impossible for it to reattain ‘active’ status, and so the transaction transitions into the ‘commiting’ state and a signal is sent denoting that it is time to flush the results of the transaction to disk. This flow is illustrated below in Figure 1. It is important to note about this graphic that the sequence of events along the upper horizontal control flow belong to the database task queue, and those along the lower horizontal control flow belong to the page task queue. These two task queues can execute independently of one another, and so work can still be done in one even if the other has shut down.
 
 <p align="center">
 <img src="https://github.com/andreas-butler/idb-transaction-commit/blob/master/pics/idb_autocommit_curr.png?raw=true" alt="hi" />
@@ -40,18 +40,16 @@ Figure 2: How the previous control flow differs in the case of explicit commit()
 </p>
 
 # Why?
+The primary benefit of this change is increasing the throughput of writing data to disk. The throughput increase is evident in comparing Figure 2 to Figure 1. In Figure 2 one sees that time required by the round trip of the response of the final request and the commit signal it ultimately returns upon completion of its callback is saved by the explicit commit().
+
 Under the previous architecture, before a transaction could be fully committed and data flushed to disk, it was necessary for script to verify that no request callbacks themselves made new requests on the transaction. This meant that flushing data to disk required waiting for all pending callbacks to resolve completely. 
 
 IndexedDB’s transaction.commit() will allow developers the flexibility to announce the fact that they do not intend to make any new requests on a transaction object and that it can be committed as soon as possible. Under these conditions, the task of flushing data to disk does not have to wait until a signal from the front end declares that all callbacks associated with the transaction have resolved; it only has to wait until all transaction requests have been processed completely.
 
-The primary benefit of this change is increasing the throughput of writing data to disk. The throughput increase is evident in comparing Figure 2 to Figure 1. In Figure 2 one sees that time required by the round trip of the response of the final request and the commit signal it ultimately returns upon completion of its callback is saved by the explicit commit().
-
 This is particularly useful for the case of loading a database, when large amounts of data are being written to disk via many transactions with no intention of making any follow up queries on that data, and the case of writing data to disk under some time constraint. The latter situation is encountered, for example, when the browser informs a tab that is about to be killed (because it has been inactive for a period of time and will thus be killed to ease memory usage) and so the tab must save its state to disk as fast as possible so that it can be reloaded again in the event that a user navigates back to it. This case is explained in greater detail in the section [Page Lifcycle](#page-lifecycle) below.
 
-A secondary benefit exists that is less concrete but nevertheless still important. By allowing developers to explicitly call commit() on transactions, the IndexedDB API begins to adopt the feel of a more conventional database API. Having indexeddb rely on autocommit solely could potentially make developers uncomfortable, as it prevents them from feeling like they have complete control over the consistency of data which they're reading and writing to disk. 
-
 # How?
-The explicit commit() API call may only be requested against a transaction so long as that transaction is active (ie: when it is first created and within the scope of any callbacks belonging to any previous requests made on the transaction). When the call is made, the transaction's state will be set to 'committing' to prevent any future requests from being made against it. Following this, control will wait until every request against the transaction has completed, after which an attempt will be made to actually flush the changes made to the database by the transaction to disk. In the event of an error, the transaction will be aborted and an Exception will be raised. After this, the transaction will be switched to the 'finished' state and an event named 'complete' will be fired at??? the transaction (Additionally at this time any necessary nulling of pointers will be done for the case of the transaction being an upgrade transaction).
+The explicit commit() API call may only be requested against a transaction so long as that transaction is active (ie: when it is first created and within the scope of any callbacks belonging to any previous requests made on the transaction). When the call is made, the transaction's state will be set to 'committing' to prevent any future requests from being made against it. Following this, the database task queue will wait until every request against the transaction has completed, after which an attempt will be made to actually flush the changes made to the database by the transaction to disk. In the event of an error, the transaction will be aborted and an Exception will be sent to the page task queue. After this, the transaction will be switched to the 'finished' state and an event named 'complete' will be sent to the page task queue (Additionally at this time any necessary nulling of pointers will be done for the case of the transaction being an upgrade transaction).
 
 # Potential Issues
 IndexedDB initially shipped solely with an autocommit functionality. Developers did not have the control to declare themselves finished with a transaction that the new explicit commit() API call affords them. It is thus reasonable to ask why the initial ship of indexedDB did not include an explicit commit() call and whether adding one could cause potential issues. The short answer to the first question is ‘simplicity’ and the short answer to the second question is ‘not really’.
@@ -74,9 +72,35 @@ There have been questions regarding whether or not some procedure for resurfacin
 When a user initially creates an indexedDB database, they may desire to load a large amount of data into the database without any intention of making any secondary requests beyond this large ‘put’ operation. In this event, to ensure loading occurs as fast as possible, the developer can call commit() after issuing all their ‘puts’.
 
 ```javascript
-let data_chunks = get_data_to_load() // helper function elsewhere defined
-data_chunks.forEach(function(chunk) {
-  let txn = indexedDB
+// Here we collect a bunch of data to load into a database,
+// perhaps in multiple transactions.
+let data_chunks = get_data_to_load(); // helper function elsewhere defined
+let db;
+
+// Connect to the database
+let openRequest = await indexedDB.open(['myDatabase']);
+openRequest.onsuccess = function(event) {
+  db = openRequest.result;
+};
+
+// Make all the transactions for the different data chunks
+// and commit them.
+data_chunks.forEach(async function(chunk) {
+  let txn = db.transaction(['myDatabase'], 'readwrite');
+  txn.onsuccess = function(event) {
+    console.log("Successfully wrote chunk: " + chunk.num);
+  }
+  txn.onerror = function(event) {
+    console.log("Unsuccessfully wrote chunk: " + chunk.num);
+  }
+  
+  let objectStore = txn.objectStore('myDatabase');
+  chunk.data.forEach(function(datum) {
+    objectStore.put(datum.key, datum.value);
+  });
+  
+  // Here we call the explicit commit.
+  txn.commit();
 });
 ```
 ## Page Lifecycle
@@ -103,11 +127,34 @@ Figure 4: An example of how the above situation is made more reliable with the a
 By providing a reliable commit() option for indexedDB in the case of saving page state, developers will no longer have to rely on saving to localStorage, which will have a positive impact on website performance and input latency.
 
 ```javascript
-let database_info_enumeration = await window.indexedDB.databases();
-let ui_list = [];
-database_info_enumeration.forEach(function(info) {
-  ui_list.push(info.name);
-});
+function onShutdownSignal(event) {
+  let pageState = getCurrentPageState(); // helper function elsewhere defined
+  let db;
+
+  // Connect to the database
+  let openRequest = await indexedDB.open(['pageStateDB']);
+  openRequest.onsuccess = function(event) {
+    db = openRequest.result;
+  };
+
+  // Make the transactions for saving state.
+  let txn = db.transaction(['pageStateDB'], 'readwrite');
+  txn.onsuccess = function(event) {
+    console.log("Successfully wrote state.");
+  }
+  txn.onerror = function(event) {
+    console.log("Unsuccessfully wrote state.");
+  }
+
+  // Define the puts for the transaction
+  let objectStore = txn.objectStore('pageStateDB');
+  pageState.forEach(function(pieceOfState) {
+    objectStore.put(pieceOfState.key, pieceOfState.value);
+  });
+
+  // Here we call the explicit commit.
+  txn.commit();
+}
 ```
 
 ## Best Practice
@@ -117,8 +164,8 @@ When a developer knows that they have made the last request on an open transacti
 Transaction commit() still ensures that all transactions occur atomically, that is they are either commited in their entirety or not at all. If for whatever reason a transaction is aborted in the middle of a commit mediated by the explicit commit() function, there is no difference in behaviour as if it were aborted in the middle of an autocommit.
 
 # Spec changes
-See [https://github.com/w3c/IndexedDB/pull/242](#https://github.com/w3c/IndexedDB/pull/242)
+See [https://github.com/w3c/IndexedDB/pull/242](https://github.com/w3c/IndexedDB/pull/242)
 
 # Future Features
-resurfacing commit() errors
-commit() 2
+## Resurfacing commit errors
+In the future there may be additional support for resurfacing commit errors that may occur when a page has been shutdown in the middle of a transaction being committed and is thus not around to receive the errors from the database task queue. Such an implementation would involve saving any errors that occur during committing so that if the page is loaded again at another time it can be delivered the errors that occurred previously and handle them.

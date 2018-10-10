@@ -48,7 +48,7 @@ The primary benefit of this change is increasing the throughput of writing data 
 
 This is particularly useful for the case of loading a database, when large amounts of data are being written to disk via many transactions with no intention of making any follow up queries on that data, and the case of writing data to disk under some time constraint. The latter situation is encountered, for example, when the browser informs a tab that is about to be killed (because it has been inactive for a period of time and will thus be killed to ease memory usage) and so the tab must save its state to disk as fast as possible so that it can be reloaded again in the event that a user navigates back to it. This case is explained in greater detail in the section [Page Lifcycle](#page-lifecycle) below.
 
-A secondary benefit exists that is less concrete but nevertheless still important. By allowing developers to explicitly call commit() on transactions, the IndexedDB API begins to adopt the feel of a more conventional database API.
+A secondary benefit exists that is less concrete but nevertheless still important. By allowing developers to explicitly call commit() on transactions, the IndexedDB API begins to adopt the feel of a more conventional database API. Having indexeddb rely on autocommit solely could potentially make developers uncomfortable, as it prevents them from feeling like they have complete control over the consistency of data which they're reading and writing to disk. 
 
 # How?
 The explicit commit() API call may only be requested against a transaction so long as that transaction is active (ie: when it is first created and within the scope of any callbacks belonging to any previous requests made on the transaction). When the call is made, the transaction's state will be set to 'committing' to prevent any future requests from being made against it. Following this, control will wait until every request against the transaction has completed, after which an attempt will be made to actually flush the changes made to the database by the transaction to disk. In the event of an error, the transaction will be aborted and an Exception will be raised. After this, the transaction will be switched to the 'finished' state and an event named 'complete' will be fired at??? the transaction (Additionally at this time any necessary nulling of pointers will be done for the case of the transaction being an upgrade transaction).
@@ -56,12 +56,16 @@ The explicit commit() API call may only be requested against a transaction so lo
 # Potential Issues
 IndexedDB initially shipped solely with an autocommit functionality. Developers did not have the control to declare themselves finished with a transaction that the new explicit commit() API call affords them. It is thus reasonable to ask why the initial ship of indexedDB did not include an explicit commit() call and whether adding one could cause potential issues. The short answer to the first question is ‘simplicity’ and the short answer to the second question is ‘not really’.
 
-IndexedDB shipped with autocommit initially to encourage short-lived transactions and to prevent bugs involving leaving uncommited transactions hanging around blocking future transactions from being opened on a database. Developers of indexedDB were concerned about web developers forgetting to call commit on transactions or holding transactions open too long, thus hindering the experience of web users. Because adding the explicit commit() call will not also entail removing autocommit, the autocommit feature will still exist to prevent dangling transactions and to close transactions as soon as they are no longer requestable by script.
+## Why an explicit commit function was not initially shipped
+The first iteration of the indexedDB spec shipped with autocommit-only functionality to encourage short-lived transactions and to prevent bugs involving leaving uncommited transactions hanging around blocking future transactions from being opened on a database. Developers of indexedDB were concerned about web developers forgetting to call commit on transactions or holding transactions open too long, thus hindering the experience of web users. Because adding the explicit commit() call will not also entail removing autocommit, the autocommit feature will still exist to prevent dangling transactions and to close transactions as soon as they are no longer requestable by script.
 
+## Potential developer confusion
 The primary concern about adding commit() is developer confusion, specifically confusion regarding whether and when commit() should be called. Adding commit() to the API may obfuscate the fact that indexedDB still has an auto-commit functionality. Developers may incorrectly believe that they must call commit() on all transactions lest they leave them dangling in the database. While this is a rather benign misunderstanding as it encourages always calling commit() and thus always increasing the throughput of the final requests made on a database, it is not ideal for the behaviour of indexedDB to seem at all unintuitive or opaque.
 
+## Possibility of obsolescing autocommit
 In general there might be concern regarding the fact that the explicit commit() is strictly better than indexedDB’s autocommit functionality (increasing throughput at no expense to the developer, who themselves have the best understanding of when they are completely finished with a transaction). As a result, calling commit() commit at the end of every transaction may very well become best practice, indicating that the autocommit functionality is superfluous. The best argument for the continued existence of the autocommit functionality is that it serves as a failsafe for any event in which a developer does not call commit() explicitly, in which case the autocommit will commit the transaction and prevent it from dangling.
 
+## Losing error information when a page dies
 There have been questions regarding whether or not some procedure for resurfacing commit errors that occur after an explicit commit call is made will be included with commit(). Without such error reporting, there could be cases when commit() is used for saving tab state, say in the case of freezing, when errors may occur on requests against the transaction that are never reported back to the front end because the page is killed before information regarding the errors propagates back to script. In these situations it may be useful to let script know of such errors the next time the page is loaded, otherwise information is lost.
 
 # Use Cases and Example Code
@@ -70,9 +74,9 @@ There have been questions regarding whether or not some procedure for resurfacin
 When a user initially creates an indexedDB database, they may desire to load a large amount of data into the database without any intention of making any secondary requests beyond this large ‘put’ operation. In this event, to ensure loading occurs as fast as possible, the developer can call commit() after issuing all their ‘puts’.
 
 ```javascript
-let database_info_enumeration = await window.indexedDB.databases();
-database_info_enumeration.forEach(function(info) {
-  indexedDB.deleteDatabase(info.name);
+let data_chunks = get_data_to_load() // helper function elsewhere defined
+data_chunks.forEach(function(chunk) {
+  let txn = indexedDB
 });
 ```
 ## Page Lifecycle
@@ -110,13 +114,7 @@ database_info_enumeration.forEach(function(info) {
 When a developer knows that they have made the last request on an open transaction, calling commit() is strictly beneficial to them. Their data will be written to disk faster and they will still receive responses from the final requests they have made against the transaction and so can still perform operations in script in reaction to the final requests being processed. Therefore whenever a developer is certain that a request is the final one they will make against a transaction, best practice will likely become that they call commit explicitly on the transaction.
 
 # Transaction commit() consistency and guarantees
-Transaction commit() 
-## Guarantees
-// talk about how even if the page crashes after the requests are issued, the stuff will still 
-// commit? Or will there be a further issue because of the oncomplete not being adequately 
-// received?
-## Consistency
-// talk about what happens in the event of a writing error (cache full) and how abort will be called?
+Transaction commit() still ensures that all transactions occur atomically, that is they are either commited in their entirety or not at all. If for whatever reason a transaction is aborted in the middle of a commit mediated by the explicit commit() function, there is no difference in behaviour as if it were aborted in the middle of an autocommit.
 
 # Spec changes
 See [https://github.com/w3c/IndexedDB/pull/242](#https://github.com/w3c/IndexedDB/pull/242)

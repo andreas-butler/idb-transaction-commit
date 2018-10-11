@@ -12,8 +12,8 @@ Last updated date: 10/10/2018
   - [Non-goals](#non-goals)
 - [Getting started and example code](#getting-started-and-example-code)
 - [Key scenarios](#key-scenarios)
-  - [Scenario 1: Loading a database](#scenario-1\:-loading-a-database) 
-  - [Scenario 2: Page lifecycle](#scenario-2\:-page-lifecycle)
+  - [Scenario 1: Loading a database](#scenario-1\\:-loading-a-database) 
+  - [Scenario 2: Page lifecycle](#scenario-2\\:-page-lifecycle)
 - [Use Cases and Example Code](#use-cases-and-example-code)
   - [Writeonly Mode](#writeonly-mode)
   - [Page Lifecycle](#page-lifecycle)
@@ -57,7 +57,7 @@ Increasing the throughput of writing data to disk for indexedDB is particularly 
 
 ## Non-goals
 
-# Getting started / example code
+# Getting started and example code
 Using the IDBTransaction.commit() API call will be simple and intuitive and introduce very little additional code relative to what developers are already accustomed to writing. Developers will simply call commit() on any transaction that they know they are finished requesting and are ready to commit to the database.
 
 ```javascript

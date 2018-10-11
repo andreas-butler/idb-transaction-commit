@@ -18,7 +18,7 @@ Last updated date: 10/10/2018
   - [Writeonly Mode](#writeonly-mode)
   - [Page Lifecycle](#page-lifecycle)
   - [Best Practice](#best-practice)
-- [Potential Issues](#potential-issues)
+- [Detailed design discussion](#detailed-design-discussion)
   - [Why an explicit commit function was not initially shipped](#why-an-explicit-commit-function-was-not-initially-shipped)
   - [Potential developer confusion](#potential-developer-confusion)
   - [Possibility of obsolescing autocommit](#possibility-of-obsolescing-autocommit)

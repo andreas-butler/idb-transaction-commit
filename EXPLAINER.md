@@ -56,6 +56,7 @@ IndexedDB’s transaction.commit() will allow developers the flexibility to anno
 Increasing the throughput of writing data to disk for indexedDB is particularly useful for the case of loading a database, when large amounts of data are being written to disk via many transactions with no intention of making any follow up queries on that data, and the case of writing data to disk under some time constraint. The latter situation is encountered, for example, when the browser informs a tab that is about to be killed (because it has been inactive for a period of time and will thus be killed to ease memory usage) and so the tab must save its state to disk as fast as possible so that it can be reloaded again in the event that a user navigates back to it. This case is explained in greater detail in the section [Page Lifcycle](#page-lifecycle) below.
 
 ## Non-goals
+The explicit commit() function detailed in this document will NOT be replacing indexedDB's autocommit functionality. This means that there is still no standard way to hold a transaction open at the complete discretion of the developer. Particularly, there is still no standard way of opening a transaction, doing async work with results that will interact with the transaction, and then passing the results off to the transaction with the guarantee that it won't have autocommited in the meantime (while waiting on the async task). This can make using indexedDB cumbersome in many situations.
 
 # Getting started and example code
 Using the IDBTransaction.commit() API call will be simple and intuitive and introduce very little additional code relative to what developers are already accustomed to writing. Developers will simply call commit() on any transaction that they know they are finished requesting and are ready to commit to the database.
@@ -192,7 +193,7 @@ let txn;
 txn.commit()
 ```
 
-# Potential Issues
+# Detailed design discussion
 IndexedDB initially shipped solely with an autocommit functionality. Developers did not have the control to declare themselves finished with a transaction that the new explicit commit() API call affords them. It is thus reasonable to ask why the initial ship of indexedDB did not include an explicit commit() call and whether adding one could cause potential issues. The short answer to the first question is ‘simplicity’ and the short answer to the second question is ‘not really’.
 
 ## Why an explicit commit function was not initially shipped
@@ -221,5 +222,5 @@ In the future there may be additional support for resurfacing commit errors that
 Thanks to Josh Bell for doing the spec work and helping explain commit().
 Thanks to Daniel Murphy for his explanations as well.
 Thanks to Shubhie Panicker and Philip Walton for their explanation of how commit() helps the Lifecycle API.
-Thanks to 
+Thanks to Andrew Sutherland, Ali Alabbas, and Nolan Lawson for their contributions.
 

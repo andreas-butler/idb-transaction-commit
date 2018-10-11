@@ -220,7 +220,10 @@ In the future there may be additional support for resurfacing commit errors that
 
 # References & acknowledgements
 Thanks to Josh Bell for doing the spec work and helping explain commit().
+
 Thanks to Daniel Murphy for his explanations as well.
+
 Thanks to Shubhie Panicker and Philip Walton for their explanation of how commit() helps the Lifecycle API.
+
 Thanks to Andrew Sutherland, Ali Alabbas, and Nolan Lawson for their contributions.
 

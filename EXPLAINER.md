@@ -103,27 +103,28 @@ let db;
 let openRequest = indexedDB.open(['myDatabase']);
 openRequest.onsuccess = function(event) {
   db = openRequest.result;
+
+  // Make all the transactions for the different data chunks
+  // and commit them.
+  data_chunks.forEach(async function(chunk) {
+    let txn = db.transaction(['myDatabase'], 'readwrite');
+    txn.onsuccess = function(event) {
+      console.log("Successfully wrote chunk: " + chunk.num);
+    }
+    txn.onerror = function(event) {
+      console.log("Unsuccessfully wrote chunk: " + chunk.num);
+    }
+  
+    let objectStore = txn.objectStore('myDatabase');
+    chunk.data.forEach(function(datum) {
+      objectStore.put(datum.key, datum.value);
+    });
+  
+    // Here we call the explicit commit.
+    txn.commit();
+  });
 };
 
-// Make all the transactions for the different data chunks
-// and commit them.
-data_chunks.forEach(async function(chunk) {
-  let txn = db.transaction(['myDatabase'], 'readwrite');
-  txn.onsuccess = function(event) {
-    console.log("Successfully wrote chunk: " + chunk.num);
-  }
-  txn.onerror = function(event) {
-    console.log("Unsuccessfully wrote chunk: " + chunk.num);
-  }
-  
-  let objectStore = txn.objectStore('myDatabase');
-  chunk.data.forEach(function(datum) {
-    objectStore.put(datum.key, datum.value);
-  });
-  
-  // Here we call the explicit commit.
-  txn.commit();
-});
 ```
 ## Scenario 2: Page Lifecycle
 The Page Lifecycle API is an API heavily involved in alleviating power and memory tolls on users running many web applications at once. Central to this task is efficiently tracking and managing pages as they transition in and out of active and inactive states.
@@ -151,16 +152,9 @@ By providing a reliable commit() option for indexedDB in the case of saving page
 ```javascript
 function onShutdownSignal(event) {
   let pageState = getCurrentPageState(); // helper function elsewhere defined
-  let db;
-
-  // Connect to the database
-  let openRequest = indexedDB.open(['pageStateDB']);
-  openRequest.onsuccess = function(event) {
-    db = openRequest.result;
-  };
-
+  
   // Make the transactions for saving state.
-  let txn = db.transaction(['pageStateDB'], 'readwrite');
+  let txn = db.transaction(['pageStateDB'], 'readwrite'); // Assuming we already have an open db.
   txn.onsuccess = function(event) {
     console.log("Successfully wrote state.");
   }

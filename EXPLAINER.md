@@ -12,7 +12,7 @@ Last updated date: 10/10/2018
   - [Non-goals](#non-goals)
 - [Getting started and example code](#getting-started-and-example-code)
 - [Key scenarios](#key-scenarios)
-  - [Scenario 1: Loading a database](#scenario-1-loading-a-database) 
+  - [Scenario 1: Populating a database](#scenario-1-populating-a-database) 
   - [Scenario 2: Page lifecycle](#scenario-2-page-lifecycle)
 - [Use Cases and Example Code](#use-cases-and-example-code)
   - [Writeonly Mode](#writeonly-mode)
@@ -21,16 +21,14 @@ Last updated date: 10/10/2018
 - [Detailed design discussion](#detailed-design-discussion)
   - [Why an explicit commit function was not initially shipped](#why-an-explicit-commit-function-was-not-initially-shipped)
   - [Potential developer confusion](#potential-developer-confusion)
-  - [Possibility of obsolescing autocommit](#possibility-of-obsolescing-autocommit)
 - [Spec changes](#spec-changes)
-- [Considered alternatives](#considered-alternatives)
 - [Future features](#future-features)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 # What’s all this then?
 IndexedDB’ transaction.commit() functionality will provide an explicit API for requesting that an IndexedDB transaction be committed. 
 
-At present an IndexedDB transaction is auto-committed when it is determined by script that it is no longer possible to kick the transaction from an inactive state to an active one. A transaction may transition from inactive to active only within the scope of any callbacks belonging to any requests made on the transaction, which is the same scope in which new requests may be made on the transaction. Thus, as long as callbacks from previous transaction requests themselves make new requests (for example, in the event that the results of a previous query are used to construct a secondary query), the lifetime of the transaction will be extended and the transaction will not be committed. Otherwise, if all associated callbacks have resolved and there are no new requests against a transaction, script will detect this fact and autocommit the transaction, flushing any changes made by the transaction to a database to disk. This behaviour can be seen in Figure 1.
+At present an IndexedDB transaction is auto-committed when the user agent determines that it is no longer possible to kick the transaction from an inactive state to an active one. A transaction may transition from inactive to active only within the scope of any callbacks belonging to any requests made on the transaction, which is the same scope in which new requests may be made on the transaction. Thus, as long as callbacks from previous transaction requests themselves make new requests (for example, in the event that the results of a previous query are used to construct a secondary query), the lifetime of the transaction will be extended and the transaction will not be committed. Otherwise, if all associated callbacks have resolved and there are no new requests against a transaction, the user agent will detect this fact and autocommit the transaction, flushing any changes made by the transaction to a database to disk. This behaviour can be seen in Figure 1.
 
 <p align="center">
 <img src="https://github.com/andreas-butler/idb-transaction-commit/blob/master/pics/idb_autocommit_curr.png?raw=true" alt="hi" />
@@ -38,7 +36,7 @@ At present an IndexedDB transaction is auto-committed when it is determined by s
 Figure 1: An example control flow illustrating the transaction autocommit functionality.
 </p>
 
-With the addition of the explicit commit() call to the IDBTransaction API, the strict requirement for script alone to determine programmatically when a transaction is ready to be committed is removed. When the explicit commit() call is invoked on an active transaction, the transaction will be forced into the ‘committing’ state, and thus no new requests will be permitted to be made on it (even in any callbacks belonging to previous requests). Attempts at making new requests on the transaction after commit() is called will throw a DOMException. We see the difference between the current autocommiting implementation and the new explicit commit() call in Figure 2 below.
+With the addition of the explicit commit() call to the IDBTransaction API, the strict requirement for the user agent alone to determine programmatically when a transaction is ready to be committed is removed. When the explicit commit() call is invoked on an active transaction, the transaction will be forced into the ‘committing’ state, and thus no new requests will be permitted to be made on it (even in any callbacks belonging to previous requests). Attempts at making new requests on the transaction after commit() is called will throw a DOMException. We see the difference between the current autocommiting implementation and the new explicit commit() call in Figure 2 below.
 
 <p align="center">
 <img src="https://github.com/andreas-butler/idb-transaction-commit/blob/master/pics/idb_commit_new.png?raw=true" alt="hi" />
@@ -53,10 +51,10 @@ Under the previous architecture, before a transaction could be fully committed a
 
 IndexedDB’s transaction.commit() will allow developers the flexibility to announce the fact that they do not intend to make any new requests on a transaction object and that it can be committed as soon as possible. Under these conditions, the task of flushing data to disk does not have to wait until a signal from the front end declares that all callbacks associated with the transaction have resolved; it only has to wait until all transaction requests have been processed completely by the database task queue. The fact that this final signal roundtrip between the database task queue and the page task queue is no longer necessary is evidenced by its lack in Figure 2 relative to Figure 1.
 
-Increasing the throughput of writing data to disk for indexedDB is particularly useful for the case of loading a database, when large amounts of data are being written to disk via many transactions with no intention of making any follow up queries on that data, and the case of writing data to disk under some time constraint. The latter situation is encountered, for example, when the browser informs a tab that is about to be killed (because it has been inactive for a period of time and will thus be killed to ease memory usage) and so the tab must save its state to disk as fast as possible so that it can be reloaded again in the event that a user navigates back to it. This case is explained in greater detail in the section [Page Lifcycle](#page-lifecycle) below.
+Increasing the throughput of writing data to disk for indexedDB is particularly useful for the case of populating a database, when large amounts of data are being written to disk via many transactions with no intention of making any follow up queries on that data, and the case of writing data to disk under some time constraint. The latter situation is encountered, for example, when the browser informs a tab that is about to be killed (because it has been inactive for a period of time and will thus be killed to ease memory usage) and so the tab must save its state to disk as fast as possible so that it can be reloaded again in the event that a user navigates back to it. This case is explained in greater detail in the section [Page Lifcycle](#page-lifecycle) below.
 
 ## Non-goals
-The explicit commit() function detailed in this document will NOT be replacing indexedDB's autocommit functionality. This means that there is still no standard way to hold a transaction open at the complete discretion of the developer. Particularly, there is still no standard way of opening a transaction, doing async work with results that will interact with the transaction, and then passing the results off to the transaction with the guarantee that it won't have autocommited in the meantime (while waiting on the async task). This can make using indexedDB cumbersome in many situations.
+The explicit commit() function detailed in this document will NOT be replacing indexedDB's autocommit functionality. This means that there is still no standard way to hold a transaction open at the complete discretion of the developer. Particularly, there is still no standard way of opening a transaction, doing async work with results that will interact with the transaction, and then passing the results off to the transaction with the guarantee that it won't have autocommited in the meantime (while waiting on the async task). 
 
 # Getting started and example code
 Using the IDBTransaction.commit() API call will be simple and intuitive and introduce very little additional code relative to what developers are already accustomed to writing. Developers will simply call commit() on any transaction that they know they are finished requesting and are ready to commit to the database.
@@ -90,15 +88,15 @@ txn.commit();
 
 # Key scenarios
 
-## Scenario 1: Loading a database
-Oftentimes a user may desire to load a large amount of data into a database without any intention of making any secondary requests beyond this large ‘put’ operation. In this event, to ensure loading occurs as fast as possible, the developer can call commit() after issuing all their ‘puts’.
+## Scenario 1: Populating a database
+Oftentimes a user may desire to populate a large amount of data into a database without any intention of making any secondary requests beyond this large ‘put’ operation. In this event, to ensure populating occurs as fast as possible, the developer can call commit() after issuing all their ‘puts’.
 
 ```javascript
-// Here we collect a bunch of data to load into a database,
+// Here we collect a bunch of data to populate a database,
 // using multiple transactions. Because commit() will speed up the
 // flushing of each individual transaction, throughput increases
 // dramatically.
-let data_chunks = get_data_to_load(); // helper function elsewhere defined
+let data_chunks = get_data_to_populate(); // helper function elsewhere defined
 let db;
 
 // Connect to the database
@@ -130,7 +128,7 @@ data_chunks.forEach(async function(chunk) {
 ## Scenario 2: Page Lifecycle
 The Page Lifecycle API is an API heavily involved in alleviating power and memory tolls on users running many web applications at once. Central to this task is efficiently tracking and managing pages as they transition in and out of active and inactive states.
 
-The process of ‘freezing’ a tab involves recognizing when a tab has been inactive for a long period of time, marking it for ‘freezing’ (letting it know that the browser is getting ready to kill its process to save on memory), and then subsequently killing it. When the tab is informed that it is going to be killed, it has a limited window of time to save its state to disk so that in the event that a user renavigates to that tab, it can be allocated a new process that can be loaded back into the state that the previous process was in when it was killed.
+The process of ‘freezing’ a tab involves recognizing when a tab has been inactive for a long period of time, marking it for ‘freezing’ (letting it know that the browser is getting ready to kill its process to save on memory), and then subsequently killing it. When the tab is informed that it is going to be killed, it has a limited window of time to save its state to disk so that in the event that a user renavigates to that tab the website can pick up where it left off by re-loading this state.
 
 Currently ‘freezing’ and other such functionalities under the umbrella of the ‘lifecycle’ API cannot reliably use indexedDB to save state because there is a risk that the transaction responsible for saving state to disk will not commit before the page is killed. This unreliability arises because the page must be alive after the ‘put’ requests return to the front end in order to issue the commit signal after all callbacks have resolved. Instead there is a pattern of developers saving state to localStorage. This unreliability is illustrated below in Figure 3.
 
@@ -202,17 +200,10 @@ The first iteration of the indexedDB spec shipped with autocommit-only functiona
 ## Potential developer confusion
 The primary concern about adding commit() is developer confusion, specifically confusion regarding whether and when commit() should be called. Adding commit() to the API may obfuscate the fact that indexedDB still has an auto-commit functionality. Developers may incorrectly believe that they must call commit() on all transactions lest they leave them dangling in the database. While this is a rather benign misunderstanding as it encourages always calling commit() and thus always increasing the throughput of the final requests made on a database, it is not ideal for the behaviour of indexedDB to seem at all unintuitive or opaque.
 
-## Possibility of obsolescing autocommit
-In general there might be concern regarding the fact that the explicit commit() is strictly better than indexedDB’s autocommit functionality (increasing throughput at no expense to the developer, who themselves have the best understanding of when they are completely finished with a transaction). As a result, calling commit() commit at the end of every transaction may very well become best practice, indicating that the autocommit functionality is superfluous. The best argument for the continued existence of the autocommit functionality is that it serves as a failsafe for any event in which a developer does not call commit() explicitly, in which case the autocommit will commit the transaction and prevent it from dangling.
-
 Obviously even if calling commit() always becomes best practice, autocommit will not likely be removed.
 
 # Spec changes
 See [https://github.com/w3c/IndexedDB/pull/242](https://github.com/w3c/IndexedDB/pull/242)
-
-# Considered alternatives
-## API call to ‘commit when ready’
-There was discussion regarding implementing a commit method that would allow a developer to extend the life of a transaction as they saw fit. Such a scheme would allow for an easier method of doing asynchronous work upon which a transaction depended between initializing the transaction and committing it. At present it is difficult to have the results of asynchronous work affect a transaction because of how autocommitting detects when a transaction has no work left to do (essentially script would likely figure that a transaction could be committed while it was waiting for async work to be done because it would have no immediate requests open against it). Such an implementation of commit was put aside for the time being because of the potential complications it could cause if developers don’t carefully manage their open database transactions.
 
 # Potential future features
 ## Resurfacing commit errors
@@ -226,4 +217,6 @@ Thanks to Daniel Murphy for his explanations as well.
 Thanks to Shubhie Panicker and Philip Walton for their explanation of how commit() helps the Lifecycle API.
 
 Thanks to Andrew Sutherland, Ali Alabbas, and Nolan Lawson for their contributions.
+
+
 

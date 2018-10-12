@@ -69,21 +69,20 @@ let db;
 let openRequest = indexedDB.open(['myDatabase']);
 openRequest.onsuccess = function(event) {
   db = openRequest.result;
+  let txn = db.transaction(['myDatabase'], 'readwrite');
+  txn.onsuccess = function(event) {
+    console.log("Successfully wrote data.");
+  }
+  txn.onerror = function(event) {
+    console.log("Unsuccessfully wrote data.");
+  }
+
+  let objectStore = txn.objectStore('myObjectStore');
+  objectStore.put(data.key, data.value);
+
+  // Here we call the explicit commit.
+  txn.commit();
 };
-
-let txn = db.transaction(['myDatabase'], 'readwrite');
-txn.onsuccess = function(event) {
-  console.log("Successfully wrote data.");
-}
-txn.onerror = function(event) {
-  console.log("Unsuccessfully wrote data.");
-}
-
-let objectStore = txn.objectStore('myObjectStore');
-objectStore.put(data.key, data.value);
-
-// Here we call the explicit commit.
-txn.commit();
 ```
 
 # Key scenarios

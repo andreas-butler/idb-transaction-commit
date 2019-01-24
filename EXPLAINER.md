@@ -184,6 +184,46 @@ let txn;
 txn.commit()
 ```
 
+## Scenario 4: Error Handling
+It is possible for a call to commit() to throw an exception of type InvalidStateError. This occurs if commit is called on an inactive transaction (for example if commit is called on a transaction that is out of scope, has had abort() called on it, or has had commit() called on it). While for simple use cases it should be relatively easy to track the state of a transaction, when many dependent chains of requests are made with numerous request callbacks interacting with a single transaction it is even easier to lose track of the allowed transaction states. To avoid unexpected issues for complicated database interactions, it is a good idea to employ thorough error handling.
+
+```javascript
+let txn;
+
+// Make a lot of complicated and nested requests on the transaction here.
+// Eg:
+// let getReq1 = txn.objectStore(['store']).get('key1');
+// getReq1.onsuccess = () => { 
+//   let putReq1 = getReq1.transaction.objectStore(['store']).put({key:'keyP', value:'value'});
+//   putReq1.onsuccess = () => { ... };
+// };
+// let getReq2 = ...
+// getReq2.onerror = () => {
+//   getReq2.transaction.abort();
+// };
+// let getReq3 = ...
+// ...
+// ... and so on
+
+// In the onsuccess callback of one of these requests we call commit, but
+// because we're uncertain about how the other requests and their callbacks
+// may have affected the state of the transaction by the time this callback
+// runs, we safely wrap the commit call in a try-catch block.
+let getReqN = txn.objectStore(['store']).get('keyN');
+getReqN.onsuccess = () => {
+  try {
+    txn.commit()
+  } catch (err) {
+    if (err.name === 'InvalidStateError') {
+      // Handle the case that the transaction is inactive.
+    }
+    else {
+      // Something else bad happened here.
+    }
+  }
+};
+```
+
 # Detailed design discussion
 IndexedDB initially shipped solely with an autocommit functionality. Developers did not have the control to declare themselves finished with a transaction that the new explicit commit() API call affords them. It is thus reasonable to ask why the initial ship of indexedDB did not include an explicit commit() call and whether adding one could cause potential issues. The short answer to the first question is ‘simplicity’ and the short answer to the second question is ‘not really’.
 

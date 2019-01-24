@@ -18,6 +18,7 @@ Last updated date: 10/10/2018
   - [Writeonly Mode](#writeonly-mode)
   - [Page Lifecycle](#page-lifecycle)
   - [Best Practice](#best-practice)
+  - [Error Handling](#error-handling)
 - [Detailed design discussion](#detailed-design-discussion)
   - [Why an explicit commit function was not initially shipped](#why-an-explicit-commit-function-was-not-initially-shipped)
   - [Potential developer confusion](#potential-developer-confusion)
